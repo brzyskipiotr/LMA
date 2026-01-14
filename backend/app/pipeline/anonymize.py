@@ -58,15 +58,18 @@ def anonymize_text(text: str) -> str:
     result = NIP_PATTERN.sub('[NIP]', result)
     result = REGON_PATTERN.sub('[REGON]', result)
     result = PHONE_PATTERN.sub('[PHONE]', result)
-    result = POSTAL_CODE_PL.sub('[POSTAL]', result)
-    result = POSTAL_CODE_INTL.sub('[POSTAL]', result)
+    # NOTE: Postal codes are NOT masked - needed for geocoding
+    # result = POSTAL_CODE_PL.sub('[POSTAL]', result)
+    # result = POSTAL_CODE_INTL.sub('[POSTAL]', result)
 
     # Names - be careful not to replace company names or locations
     # Only replace if it looks like a person name (2 words, both capitalized)
     result = NAME_PATTERN.sub('[NAME]', result)
 
-    # Street addresses (but keep city names)
-    result = STREET_NUMBER_PATTERN.sub('[ADDRESS]', result)
+    # NOTE: Street addresses are NOT masked because:
+    # - Installation location is needed for geocoding/PVGIS validation
+    # - Commercial/industrial addresses are not personal data
+    # result = STREET_NUMBER_PATTERN.sub('[ADDRESS]', result)
 
     return result
 
