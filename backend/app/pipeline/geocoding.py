@@ -50,11 +50,27 @@ def _throttle():
     _last_request_time = time.time()
 
 
+def _try_geocode(address: str) -> dict | None:
+    """Single geocoding attempt."""
+    _throttle()
+    try:
+        params = {"q": address, "format": "json", "limit": 1, "addressdetails": 1}
+        headers = {"User-Agent": USER_AGENT}
+        response = httpx.get(NOMINATIM_URL, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data[0] if data else None
+    except Exception as e:
+        print(f"Geocoding error for '{address}': {e}")
+        return None
+
+
 def geocode(address: str) -> GeocodingResult | None:
     """
     Geocode an address using Nominatim (international).
     Returns lat/lon coordinates or None if not found.
     Uses file-based cache and respects 1 req/sec rate limit.
+    Falls back to city name if full address fails.
     """
     if not address or len(address.strip()) < 5:
         return None
@@ -69,56 +85,44 @@ def geocode(address: str) -> GeocodingResult | None:
             return None
         return GeocodingResult(**cached)
 
-    # Rate limit
-    _throttle()
+    # Try full address first
+    result = _try_geocode(address)
 
-    # Make request
-    try:
-        params = {
-            "q": address,
-            "format": "json",
-            "limit": 1,
-            "addressdetails": 1
-        }
-        headers = {"User-Agent": USER_AGENT}
+    # Fallback: extract city/country and try again
+    if not result:
+        # Try to extract city from address (last parts after comma)
+        parts = [p.strip() for p in address.split(',')]
+        if len(parts) >= 2:
+            # Try city + country
+            fallback = ', '.join(parts[-2:])
+            result = _try_geocode(fallback)
+        if not result and len(parts) >= 1:
+            # Try just last part (city or country)
+            result = _try_geocode(parts[-1])
 
-        response = httpx.get(NOMINATIM_URL, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        data = response.json()
-
-        if not data:
-            # Cache negative result
-            cache[cache_key] = None
-            _save_cache(cache)
-            return None
-
-        result = data[0]
-        address_details = result.get("address", {})
-
-        # Extract country code
-        country_code = address_details.get("country_code", "").upper()
-
-        # Determine confidence based on result type
-        confidence = 0.9 if result.get("type") in ["building", "house", "residential"] else 0.7
-
-        geocoding_result = GeocodingResult(
-            lat=float(result["lat"]),
-            lon=float(result["lon"]),
-            display_name=result.get("display_name", address),
-            country_code=country_code,
-            confidence=confidence
-        )
-
-        # Cache result
-        cache[cache_key] = geocoding_result.model_dump()
+    if not result:
+        # Cache negative result
+        cache[cache_key] = None
         _save_cache(cache)
-
-        return geocoding_result
-
-    except Exception as e:
-        print(f"Geocoding error for '{address}': {e}")
         return None
+
+    address_details = result.get("address", {})
+    country_code = address_details.get("country_code", "").upper()
+    confidence = 0.9 if result.get("type") in ["building", "house", "residential"] else 0.7
+
+    geocoding_result = GeocodingResult(
+        lat=float(result["lat"]),
+        lon=float(result["lon"]),
+        display_name=result.get("display_name", address),
+        country_code=country_code,
+        confidence=confidence
+    )
+
+    # Cache result
+    cache[cache_key] = geocoding_result.model_dump()
+    _save_cache(cache)
+
+    return geocoding_result
 
 
 def extract_coordinates_from_address(address: str) -> tuple[float, float, float] | None:

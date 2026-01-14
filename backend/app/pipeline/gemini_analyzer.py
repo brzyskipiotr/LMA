@@ -30,7 +30,7 @@ def extract_facts_from_images(doc_id: str, page_info: list[PageInfo]) -> list[Ex
         return []
 
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-3-flash-preview")
 
     pages_dir = UPLOAD_DIR / doc_id / "pages"
     images = []
@@ -100,7 +100,7 @@ def extract_facts_from_text(page_texts: list[str]) -> list[ExtractedFact]:
         return []
 
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-3-flash-preview")
 
     # Anonymize before sending to external API
     anonymized_pages = anonymize_pages(page_texts)
