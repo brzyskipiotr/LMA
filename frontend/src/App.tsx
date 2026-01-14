@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Upload, FileText, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
+import { Upload, FileText, Loader2 } from 'lucide-react'
 import type { AnalysisReport } from './types'
 import { ScoreCardPanel } from './components/ScoreCard'
 import { FactsTable } from './components/FactsTable'
 import { RedFlagsPanel } from './components/RedFlags'
+import { PVGISPanel } from './components/PVGISPanel'
 import { PageViewer } from './components/PageViewer'
 
 export default function App() {
@@ -113,6 +114,9 @@ export default function App() {
 
             {/* Scorecard */}
             <ScoreCardPanel scorecard={report.scorecard} />
+
+            {/* PVGIS Panel */}
+            <PVGISPanel verifications={report.verifications} onPageClick={setSelectedPage} />
 
             {/* Main content grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

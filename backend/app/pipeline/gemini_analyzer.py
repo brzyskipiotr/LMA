@@ -5,20 +5,22 @@ from PIL import Image
 
 from app.config import GOOGLE_API_KEY, UPLOAD_DIR
 from app.schemas import ExtractedFact, Evidence, PageInfo
+from app.pipeline.anonymize import anonymize_text, anonymize_pages
 
 PV_FIELDS = """
-- project_location_text: adres/lokalizacja projektu
-- declared_power_kwp: moc instalacji w kWp
-- system_type: typ (dachowa/gruntowa)
-- declared_yield_kwh_per_kwp: prognozowany uzysk kWh/kWp/rok
-- declared_annual_energy_mwh: roczna produkcja energii
-- capex_pln: koszt inwestycji w PLN
-- roof_area_m2: powierzchnia dachu
-- panels_count: liczba paneli
-- module_watt_peak: moc modułu Wp
-- inverter_power_kw: moc falownika
-- grid_connection_status: status przyłączenia do sieci
-- supplier_epc: wykonawca/dostawca
+- project_location_text: project address/location (city, region, country)
+- declared_power_kwp: installed power in kWp
+- system_type: type (rooftop/ground-mounted)
+- declared_yield_kwh_per_kwp: expected yield kWh/kWp/year
+- declared_annual_energy_mwh: annual energy production in MWh
+- capex_total: total investment cost (with currency: PLN, EUR, USD, etc.)
+- capex_currency: currency of capex (PLN, EUR, USD, GBP, etc.)
+- roof_area_m2: roof area in m²
+- panels_count: number of panels
+- module_watt_peak: module power in Wp
+- inverter_power_kw: inverter power in kW
+- grid_connection_status: grid connection status
+- supplier_epc: contractor/supplier name
 """
 
 
@@ -28,7 +30,7 @@ def extract_facts_from_images(doc_id: str, page_info: list[PageInfo]) -> list[Ex
         return []
 
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
     pages_dir = UPLOAD_DIR / doc_id / "pages"
     images = []
@@ -42,24 +44,25 @@ def extract_facts_from_images(doc_id: str, page_info: list[PageInfo]) -> list[Ex
     if not images:
         return []
 
-    prompt = f"""Przeanalizuj ten dokument PV/fotowoltaiczny i wydobądź fakty.
+    prompt = f"""Analyze this PV/photovoltaic document and extract facts.
 
-POLA DO WYDOBYCIA:
+FIELDS TO EXTRACT:
 {PV_FIELDS}
 
-Dla każdego znalezionego pola zwróć JSON:
-- field: nazwa pola z listy
-- value: wartość (liczba lub tekst)
-- unit: jednostka (kWp, PLN, m2, itp.)
+For each field found, return JSON:
+- field: field name from the list above
+- value: value (number or text)
+- unit: unit (kWp, EUR, m², etc.)
 - confidence: 0.0-1.0
-- evidence: [{{"page_no": numer_strony, "snippet": "dokładny cytat z dokumentu"}}]
+- evidence: [{{"page_no": page_number, "snippet": "exact quote from document"}}]
 
-ZASADY:
-- Wydobywaj TYLKO jeśli znajdziesz wyraźny dowód w tekście
-- Snippet musi być DOKŁADNYM cytatem
-- Zwróć [] jeśli nic nie znaleziono
+RULES:
+- Extract ONLY if you find clear evidence in the text
+- Snippet must be an EXACT quote from the document
+- Return [] if nothing found
+- Document may be in any language (Polish, English, German, etc.)
 
-Zwróć TYLKO poprawny JSON array, bez wyjaśnień."""
+Return ONLY valid JSON array, no explanations."""
 
     response = model.generate_content([prompt] + images)
 
@@ -74,9 +77,13 @@ Zwróć TYLKO poprawny JSON array, bez wyjaśnień."""
         facts = []
         for f in data:
             evidence = [Evidence(**e) for e in f.get("evidence", [])]
+            value = f.get("value")
+            # Normalize array values (e.g., [20, 25] -> "20-25")
+            if isinstance(value, list):
+                value = "-".join(str(v) for v in value) if value else None
             facts.append(ExtractedFact(
                 field=f["field"],
-                value=f.get("value"),
+                value=value,
                 unit=f.get("unit"),
                 confidence=f.get("confidence", 0.5),
                 evidence=evidence
@@ -93,31 +100,35 @@ def extract_facts_from_text(page_texts: list[str]) -> list[ExtractedFact]:
         return []
 
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
-    full_text = "\n\n".join(page_texts)[:30000]  # Limit
+    # Anonymize before sending to external API
+    anonymized_pages = anonymize_pages(page_texts)
+    full_text = "\n\n".join(anonymized_pages)[:30000]  # Limit
 
-    prompt = f"""Przeanalizuj ten dokument PV/fotowoltaiczny i wydobądź fakty.
+    prompt = f"""Analyze this PV/photovoltaic document and extract facts.
 
-DOKUMENT:
+DOCUMENT:
 {full_text}
 
-POLA DO WYDOBYCIA:
+FIELDS TO EXTRACT:
 {PV_FIELDS}
 
-Dla każdego znalezionego pola zwróć JSON:
-- field: nazwa pola z listy
-- value: wartość (liczba lub tekst)
-- unit: jednostka (kWp, PLN, m2, itp.)
+For each field found, return JSON:
+- field: field name from the list above
+- value: value (number or text)
+- unit: unit (kWp, EUR, m², etc.)
 - confidence: 0.0-1.0
-- evidence: [{{"page_no": numer_strony, "snippet": "dokładny cytat"}}]
+- evidence: [{{"page_no": page_number, "snippet": "exact quote from document"}}]
 
-ZASADY:
-- Wydobywaj TYLKO jeśli znajdziesz wyraźny dowód
-- Snippet = dokładny cytat z dokumentu
-- Zwróć [] jeśli nic nie znaleziono
+RULES:
+- Extract ONLY if you find clear evidence in the text
+- Snippet must be an EXACT quote from the document
+- Return [] if nothing found
+- Document may be in any language (Polish, English, German, etc.)
+- Note: Some PII has been redacted with placeholders like [NAME], [EMAIL], etc.
 
-Zwróć TYLKO poprawny JSON array."""
+Return ONLY valid JSON array."""
 
     response = model.generate_content(prompt)
 
@@ -132,9 +143,13 @@ Zwróć TYLKO poprawny JSON array."""
         facts = []
         for f in data:
             evidence = [Evidence(**e) for e in f.get("evidence", [])]
+            value = f.get("value")
+            # Normalize array values (e.g., [20, 25] -> "20-25")
+            if isinstance(value, list):
+                value = "-".join(str(v) for v in value) if value else None
             facts.append(ExtractedFact(
                 field=f["field"],
-                value=f.get("value"),
+                value=value,
                 unit=f.get("unit"),
                 confidence=f.get("confidence", 0.5),
                 evidence=evidence

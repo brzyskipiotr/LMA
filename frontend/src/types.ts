@@ -15,10 +15,14 @@ export interface VerificationResult {
   check_id: string
   check_type: string
   inputs: Record<string, unknown>
+  outputs: Record<string, unknown>
   result: string
+  severity: string
   delta_pct: number | null
+  confidence: number
   why: string
   pages_to_verify: number[]
+  evidence: Evidence[]
 }
 
 export interface RedFlag {
@@ -27,7 +31,9 @@ export interface RedFlag {
   category: string
   title: string
   description: string
+  why_it_matters: string
   pages_to_verify: number[]
+  evidence: Evidence[]
   recommended_action: string
 }
 

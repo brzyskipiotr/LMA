@@ -19,10 +19,14 @@ class VerificationResult(BaseModel):
     check_id: str
     check_type: str
     inputs: dict
+    outputs: dict = {}
     result: str  # OK, MARGINAL, OUTLIER
+    severity: str = "OK"  # OK, MEDIUM, HIGH
     delta_pct: float | None = None
+    confidence: float = 0.9
     why: str
     pages_to_verify: list[int] = []
+    evidence: list[Evidence] = []
 
 
 class RedFlag(BaseModel):
@@ -31,7 +35,9 @@ class RedFlag(BaseModel):
     category: str
     title: str
     description: str
+    why_it_matters: str = ""
     pages_to_verify: list[int] = []
+    evidence: list[Evidence] = []
     recommended_action: str
 
 
@@ -56,6 +62,20 @@ class DocumentMeta(BaseModel):
     sha256: str
     pages: int
     created_at: datetime
+
+
+class GeocodingResult(BaseModel):
+    lat: float
+    lon: float
+    display_name: str
+    country_code: str = ""  # ISO 3166-1 alpha-2 (PL, DE, FR, etc.)
+    confidence: float = 0.8
+
+
+class PVGISResult(BaseModel):
+    annual_kwh: float
+    kwh_per_kwp: float
+    monthly_kwh: list[float] = []
 
 
 class AnalysisReport(BaseModel):
