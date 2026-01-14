@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(cmd.exe /c \"cd /d H:\\\\hackatony\\\\lma\\\\backend && python -m venv venv\")",
+      "Bash(cmd.exe /c \"cd /d H:\\\\hackatony\\\\lma\\\\backend && python -m venv venv && venv\\\\Scripts\\\\pip install -r requirements.txt\")",
+      "Bash(powershell.exe -Command \"cd H:\\\\hackatony\\\\lma\\\\backend; if \\(-not \\(Test-Path venv\\)\\) { python -m venv venv }; .\\\\venv\\\\Scripts\\\\pip install -r requirements.txt\")",
+      "Bash(powershell.exe -Command \"cd H:\\\\hackatony\\\\lma\\\\frontend; npm install\")",
+      "Bash(cmd.exe /c \"cd /d H:\\\\hackatony\\\\lma\\\\frontend && npm install\")",
+      "Bash(npm.cmd install:*)",
+      "Bash(venvScriptspython.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(npm.cmd run dev:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(timeout:*)",
+      "Bash(\"H:\\\\hackatony\\\\lma\\\\backend\\\\venv\\\\Scripts\\\\python.exe\" -m uvicorn:*)",
+      "WebSearch",
+      "Bash(curl:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
