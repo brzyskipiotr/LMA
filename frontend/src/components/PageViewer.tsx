@@ -1,4 +1,5 @@
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { API_BASE } from '../config'
 
 interface Props {
   docId: string
@@ -41,7 +42,7 @@ export function PageViewer({ docId, pageNo, totalPages, onClose, onNavigate }: P
         {/* Image */}
         <div className="flex-1 overflow-auto p-4 bg-gray-100">
           <img
-            src={`/api/page/${docId}/${pageNo}`}
+            src={`${API_BASE}/api/page/${docId}/${pageNo}`}
             alt={`Page ${pageNo}`}
             className="max-w-full mx-auto shadow-lg"
           />

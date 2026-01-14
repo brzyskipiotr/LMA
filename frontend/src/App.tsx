@@ -6,6 +6,7 @@ import { FactsTable } from './components/FactsTable'
 import { RedFlagsPanel } from './components/RedFlags'
 import { PVGISPanel } from './components/PVGISPanel'
 import { PageViewer } from './components/PageViewer'
+import { API_BASE } from './config'
 
 export default function App() {
   const [report, setReport] = useState<AnalysisReport | null>(null)
@@ -25,7 +26,7 @@ export default function App() {
     formData.append('file', file)
 
     try {
-      const res = await fetch('/api/analyze', {
+      const res = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         body: formData,
       })
